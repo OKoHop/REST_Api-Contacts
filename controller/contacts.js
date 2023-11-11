@@ -44,6 +44,9 @@ const patchContact = async (req, res, _) => {
 const deleteContact = async (req, res, _) => {
   const { contactId } = req.params;
   const data = await Contact.findByIdAndDelete(contactId);
+  if (!data) {
+    res.status(404).send({ message: "Not found" });
+  }
   res.status(200).send(data);
 };
 
