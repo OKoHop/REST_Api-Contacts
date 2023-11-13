@@ -9,6 +9,9 @@ const getAll = async (req, res, _) => {
 const getById = async (req, res, _) => {
   const { contactId } = req.params;
   const data = await Contact.findById(contactId);
+  if (!data) {
+    res.status(404).send({ message: "Not found" });
+  }
   res.status(200).send(data);
 };
 
