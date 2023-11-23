@@ -12,10 +12,11 @@ const getAll = async (req, res, _) => {
   res.status(200).send(data);
 };
 
-const getById = async (req, res, _) => {
+const getById = async (req, res, next) => {
   const { contactId } = req.params;
+  const userId = req.user._id;
   const data = await Contact.findById(contactId);
-  if (!data) {
+  if (!data || JSON.stringify(data.owner) !== JSON.stringify(userId)) {
     res.status(404).send({ message: "Not found" });
   }
   res.status(200).send(data);
@@ -30,33 +31,55 @@ const addContact = async (req, res, _) => {
 const updateContact = async (req, res, _) => {
   const updateContact = req.body;
   const { contactId } = req.params;
+
+  const userId = req.user._id;
+  const contactOwner = await Contact.findById(contactId);
+  if (
+    !contactOwner ||
+    JSON.stringify(contactOwner.owner) !== JSON.stringify(userId)
+  ) {
+    return res.status(404).send({ message: "Not found" });
+  }
+
   const data = await Contact.findByIdAndUpdate(contactId, updateContact, {
     new: true,
   });
-  if (!data) {
-    res.status(404).send({ message: "Not found" });
-  }
+
   res.status(200).send(data);
 };
 
 const patchContact = async (req, res, _) => {
   const { contactId } = req.params;
   const updateFavorite = req.body;
+
+  const userId = req.user._id;
+  const contactOwner = await Contact.findById(contactId);
+  if (
+    !contactOwner ||
+    JSON.stringify(contactOwner.owner) !== JSON.stringify(userId)
+  ) {
+    return res.status(404).send({ message: "Not found" });
+  }
+
   const data = await Contact.findByIdAndUpdate(contactId, updateFavorite, {
     new: true,
   });
-  if (!data) {
-    res.status(404).send({ message: "Not found" });
-  }
   res.status(200).send(data);
 };
 
-const deleteContact = async (req, res, _) => {
+const deleteContact = async (req, res, next) => {
   const { contactId } = req.params;
-  const data = await Contact.findByIdAndDelete(contactId);
-  if (!data) {
-    res.status(404).send({ message: "Not found" });
+  const userId = req.user._id;
+  const contactOwner = await Contact.findById(contactId);
+  if (
+    !contactOwner ||
+    JSON.stringify(contactOwner.owner) !== JSON.stringify(userId)
+  ) {
+    return res.status(404).send({
+      message: "Not found",
+    });
   }
+  const data = await Contact.findByIdAndDelete(contactId);
   res.status(200).send(data);
 };
 

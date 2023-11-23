@@ -23,7 +23,13 @@ router.post(
   addContact
 );
 
-router.put("/:contactId", validateToken, isValidId, updateContact);
+router.put(
+  "/:contactId",
+  validateToken,
+  isValidId,
+  validateBody(schemas.validateSchema),
+  updateContact
+);
 
 router.patch(
   "/:contactId/favorite",
