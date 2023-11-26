@@ -2,10 +2,15 @@ const { User } = require("../models/users");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const gravatar = require("gravatar");
+const Jimp = require("jimp");
 require("dotenv").config();
 const { SECRET_KEY } = process.env;
+const path = require("path");
+const fs = require("fs/promises");
 
 const ctrlWrapper = require("../helpers/ctrlWrapper");
+
+const avatarStorage = path.join(__dirname, "../", "public", "avatars");
 
 const createUser = async (req, res, _) => {
   const { email, password } = req.body;
@@ -82,9 +87,36 @@ const deleteToken = async (req, res) => {
   });
 };
 
+const uploadAvatar = async (req, res) => {
+  const { _id } = req.user;
+  if (!_id) {
+    return res.status(401).send({
+      message: "Not authorized",
+    });
+  }
+  const { path: tempDir, originalname } = req.file;
+  const fileName = `${_id}_${originalname}`;
+
+  const avatarDir = path.join(avatarStorage, fileName);
+  await fs.rename(tempDir, avatarDir);
+
+  const avatarURL = path.join("avatar", fileName);
+
+  const img = Jimp.read(avatarDir);
+  (await img).resize(250, 250);
+  (await img).write(avatarDir);
+
+  await User.findByIdAndUpdate(_id, { avatarURL });
+
+  res.status(200).send({
+    avatarURL,
+  });
+};
+
 module.exports = {
   register: ctrlWrapper(createUser),
   login: ctrlWrapper(loginUser),
   getUser: ctrlWrapper(getUser),
   deleteToken: ctrlWrapper(deleteToken),
+  uploadAvatar: ctrlWrapper(uploadAvatar),
 };
