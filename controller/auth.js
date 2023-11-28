@@ -87,12 +87,20 @@ const deleteToken = async (req, res) => {
   });
 };
 
-const uploadAvatar = async (req, res) => {
+const uploadAvatar = async (req, res, next) => {
   const { _id } = req.user;
   if (!_id) {
     return res.status(401).send({
       message: "Not authorized",
     });
+  }
+  if (req.file === undefined) {
+    res.status(404).send(
+      `<img
+          src="../public/avatars/img_not_found.jpg"
+          alt="Img not found"
+        ></img>`
+    );
   }
   const { path: tempDir, originalname } = req.file;
   const fileName = `${_id}_${originalname}`;
