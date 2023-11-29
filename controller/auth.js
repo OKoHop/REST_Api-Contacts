@@ -3,8 +3,12 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const gravatar = require("gravatar");
 const Jimp = require("jimp");
+const { v4: uuidv4 } = require("uuid");
+const { sendEmail } = require("../helpers");
+
 require("dotenv").config();
-const { SECRET_KEY } = process.env;
+const { SECRET_KEY, BASE_URL } = process.env;
+
 const path = require("path");
 const fs = require("fs/promises");
 
@@ -24,14 +28,74 @@ const createUser = async (req, res, _) => {
     ...req.body,
     password: bcrypt.hashSync(password, 10),
     avatarURL: gravatar.url(email),
+    verificationToken: uuidv4(),
   });
+
+  const emailParams = {
+    subject: "Verification email",
+    to: `${email}`,
+    from: `wovxeh@mailto.plus`,
+    body: `<a target='blank' href='${BASE_URL}/users/verify/${data.verificationToken}'>Verify email</a>`,
+  };
+
+  await sendEmail(emailParams);
+
   res.status(201).send({
     user: {
       email: data.email,
       subscription: data.subscription,
       avatarURL: data.avatarURL,
+      verificationToken: data.verificationToken,
     },
   });
+};
+
+const verifyUser = async (req, res) => {
+  const { verificationToken } = req.params;
+  const user = await User.findOne({ verificationToken });
+
+  if (!user) {
+    return res.status(404).send({
+      message: "User not found",
+    });
+  }
+
+  await User.findByIdAndUpdate(user._id, {
+    verify: true,
+    verificationToken: null,
+  });
+  return res.status(200).send({
+    message: "Verification successful",
+  });
+};
+
+const resendEmail = async (req, res) => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.status(400).send({
+      message: "missing required field email",
+    });
+  }
+
+  const user = await User.findOne({ email });
+
+  if (user.verify) {
+    return res.status(400).send({
+      message: "Verification has already been passed",
+    });
+  }
+
+  const emailParams = {
+    subject: "Verification email",
+    to: `${email}`,
+    from: `wovxeh@mailto.plus`,
+    body: `<a target='blank' href='${BASE_URL}/users/verify/${user.verificationToken}'>Verify email</a>`,
+  };
+
+  await sendEmail(emailParams);
+
+  res.status(200).send({ message: "Verification email sent" });
 };
 
 const loginUser = async (req, res, _) => {
@@ -41,6 +105,12 @@ const loginUser = async (req, res, _) => {
   if (!data) {
     res.status(401).send({
       message: "Email or password is wrong",
+    });
+  }
+
+  if (!data.verify) {
+    return res.status(401).send({
+      message: "Email nor verify",
     });
   }
 
@@ -123,8 +193,10 @@ const uploadAvatar = async (req, res, next) => {
 
 module.exports = {
   register: ctrlWrapper(createUser),
+  verifyUser: ctrlWrapper(verifyUser),
   login: ctrlWrapper(loginUser),
   getUser: ctrlWrapper(getUser),
   deleteToken: ctrlWrapper(deleteToken),
   uploadAvatar: ctrlWrapper(uploadAvatar),
+  resendEmail: ctrlWrapper(resendEmail),
 };
